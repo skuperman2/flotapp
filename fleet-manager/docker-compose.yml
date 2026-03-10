@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: fleet_db
+    environment:
+      POSTGRES_USER: fleetuser
+      POSTGRES_PASSWORD: fleetpass_secure_2024
+      POSTGRES_DB: fleetdb
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - fleet_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fleetuser -d fleetdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: fleet_backend
+    command: >
+      sh -c "echo 'Waiting for DB...' && 
+             until python -c \"import psycopg2; psycopg2.connect('postgresql://fleetuser:fleetpass_secure_2024@db:5432/fleetdb')\" 2>/dev/null; do 
+               echo 'Still waiting for DB...'; 
+               sleep 2; 
+             done && 
+             echo 'DB is ready! Starting backend...' && 
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - POSTGRES_USER=fleetuser
+      - POSTGRES_PASSWORD=fleetpass_secure_2024
+      - POSTGRES_SERVER=db
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=fleetdb
+      - SECRET_KEY=your-secret-key-change-in-production-2024
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - fleet_network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: fleet_frontend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000/api/v1
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      - backend
+    networks:
+      - fleet_network
+    command: npm start
+
+volumes:
+  postgres_data:
+
+networks:
+  fleet_network:
+    driver: bridge
