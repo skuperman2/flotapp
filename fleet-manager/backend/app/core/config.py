@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     
     # Database
     POSTGRES_USER: str = "fleetuser"
-    POSTGRES_PASSWORD: str = "fleetpass123"
+    POSTGRES_PASSWORD: str = "fleetpass_secure_2024"
     POSTGRES_SERVER: str = "db"
     POSTGRES_PORT: str = "5432"
     POSTGRES_DB: str = "fleetdb"

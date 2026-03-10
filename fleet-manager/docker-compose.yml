@@ -6,7 +6,7 @@ services:
     container_name: fleet_db
     environment:
       POSTGRES_USER: fleetuser
-      POSTGRES_PASSWORD: fleetpass123
+      POSTGRES_PASSWORD: fleetpass_secure_2024
       POSTGRES_DB: fleetdb
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -17,9 +17,9 @@ services:
       - fleet_network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U fleetuser -d fleetdb"]
-      interval: 10s
+      interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
 
   backend:
     build:
@@ -27,14 +27,15 @@ services:
       dockerfile: Dockerfile
     container_name: fleet_backend
     command: >
-      sh -c "sleep 10 && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+      sh -c "until pg_isready -h db -p 5432 -U fleetuser -d fleetdb; do echo 'Waiting for DB...'; sleep 2; done && 
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
     volumes:
       - ./backend:/app
     ports:
       - "8000:8000"
     environment:
       - POSTGRES_USER=fleetuser
-      - POSTGRES_PASSWORD=fleetpass123
+      - POSTGRES_PASSWORD=fleetpass_secure_2024
       - POSTGRES_SERVER=db
       - POSTGRES_PORT=5432
       - POSTGRES_DB=fleetdb
